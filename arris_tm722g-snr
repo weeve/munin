@@ -1,0 +1,74 @@
+#!/usr/bin/perl -w
+
+# Quick and dirty Munin plugin to monitor the Signal to Noise (SNR) Ratios on
+# an Arris TM722G Cable Modem
+#
+# Created by Weeve <weeve@weeve.org>
+
+use LWP::Simple;
+use URI;
+use HTML::TableContentParser;
+use HTML::Entities;
+use strict;
+
+our $URL = "http://192.168.100.1/cgi-bin/status_cgi";
+my $page = get($URL);
+
+if ( $ARGV[0] && $ARGV[0] eq "config" ) {
+	print_config();
+}
+
+my $p = HTML::TableContentParser->new();
+our $tables = $p->parse($page);
+#my $tables = get_tables($URL);
+my $downtable = $tables->[3];	# Downstream data table
+my $uptable   = $tables->[5];   # Upstream data table
+
+# Downstream data is in array position 4 and upstream is in 3. Probably a 
+# better way to do this, but I'm lazy at the moment
+parse_table_data($downtable);
+parse_table_data($uptable);
+
+# Subroutines
+sub print_config {
+	print "graph_title Arris TM772G Signal to Noise (dB)\n";
+	print "graph_vlabel dB (decibels)\n";
+	print "graph_category arris\n";
+	print "downstreamsnr1.label Downstream 1\n";
+	print "downstreamsnr2.label Downstream 2\n";
+	print "downstreamsnr3.label Downstream 3\n";
+	print "downstreamsnr4.label Downstream 4\n";
+	print "upstreamsnr1.label Upstream 1\n";
+
+	exit 0;
+}
+
+sub parse_page_row {
+	my ($row, $URL, $datacol) = @_;
+	my ($streamname, $snr);
+	# extract cells
+	$streamname = $row->{cells}[0]{data};
+	$snr 	    = $row->{cells}[$datacol]{data};
+	return ($streamname, $snr);
+}
+
+sub parse_table_data {
+    # Grab the data we want from the table, format it and print it
+    my $tabledata = shift;
+    my $streamname;
+    my $snr;
+	foreach my $r (@{ $tabledata->{rows} }) {
+		if ( $r->{cells}[0]{data} && $r->{cells}[0]{data} =~ /stream/ ) {
+            if ( $r->{cells}[0]{data} =~ /Downstream/ ) {
+			    ($streamname, $snr) = parse_page_row($r, $URL, 4);
+            } elsif ( $r->{cells}[0]{data} =~ /Upstream/ ) {
+    			($streamname, $snr) = parse_page_row($r, $URL, 3);
+            }
+    		$streamname =~ tr/A-Z/a-z/;
+	    	$streamname =~ s/\s/snr/;
+	    	$streamname = $streamname . ".value";
+	    	$snr =~ s/ dB.*$//;
+	    	print "$streamname $snr\n";
+	    }
+    }
+}

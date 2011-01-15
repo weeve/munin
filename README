@@ -1,0 +1,8 @@
+This is a repository for any personal Munin plugins I make.  Any information
+about them is listed below.
+
+- arris_tm722g-snr:
+Plugin to monitor the Signal to Noise rations on an Arris TM722G cable modem.
+Supports the config argument.  It's a quick and dirty plugin so it doens't do
+things like dynamically get the channel names on the modem or have perldoc 
+syntax in it.  Creates the category "arris" in a host view.
